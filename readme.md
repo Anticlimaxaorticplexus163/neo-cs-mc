@@ -2,7 +2,7 @@
 
 Memes ported into your own Minecraft free of charge.
 
-A Kotlin Minecraft port of [neo-chatsounds](https://github.com/Earu/neo-chatsounds), for **NeoForge** and **Fabric** (MC 1.21.11; a `1.21.1` branch tracks the older LTS).
+A Kotlin Minecraft port of [neo-chatsounds](https://github.com/Earu/neo-chatsounds), for **NeoForge** and **Fabric** (MC 1.21.11; version branches: `1.21.1`, `1.20.1`).
 
 - **Client-first**: parses incoming chat and plays sounds positionally from the sender, works on vanilla servers, no server install required. Plugin-reformatted chat (Paper etc.) is handled through configurable sender-extraction patterns.
 - **Optional server component**: when the mod is also on the server it takes authority, repo config sync on join, spam control (token bucket), and hearing-radius filtering, relayed over an optional channel that vanilla clients never see.

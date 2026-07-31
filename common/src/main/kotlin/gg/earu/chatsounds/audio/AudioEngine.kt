@@ -7,40 +7,66 @@ import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.thread
+import kotlin.math.sin
 
-/** Parameters written by the game thread each tick and read by the DSP thread at block boundaries. */
+/** Positional/gain parameters written by the game thread each tick, read by the DSP thread. */
 class VoiceParams {
-    /** User-facing volume multiplier (modifiers, category volume, mod config). */
+    /** Listener-side gain: sound-category volume x mod config (modifier volume is DSP-side). */
     @Volatile var volume: Float = 1f
-    /** DSP playback-rate multiplier — unclamped, ±50x territory; negative means reverse (M2). */
-    @Volatile var pitch: Float = 1f
     @Volatile var x: Double = 0.0
     @Volatile var y: Double = 0.0
     @Volatile var z: Double = 0.0
-    /** First-person own voice: position is relative to the listener (0,0,0 = "flat volume"). */
+    /** First-person own voice: position relative to the listener (0,0,0 = "flat volume"). */
     @Volatile var relative: Boolean = false
     @Volatile var maxDistance: Float = 64f
 }
 
 /**
- * One playing sound: an OpenAL source fed 20 ms mono blocks synthesized by the DSP thread.
- * The DSP does its own rate conversion (position advances by pitch * srcRate/outRate per
- * output sample, nearest-neighbor — that aliasing IS the chatsounds sound), so AL_PITCH is
- * never used and extreme rates work.
+ * Mixer-side parameters, the port of the JS stream fields (webaudio.lua). Everything is in
+ * the "JS domain": sample positions/lengths at the output rate, matching the browser's
+ * decodeAudioData-resampled buffers, so loops, seeks, echo indexing, and LFO phases behave
+ * exactly like GMod.
  */
-class Voice internal constructor(
+class DspParams {
+    /** stream.speed — absolute playback rate; reverse is the sticky flag below. */
+    @Volatile var jsSpeed: Double = 1.0
+    @Volatile var reverse: Boolean = false
+    /** stream.vol_both user part; normalization gain is folded in by the mixer underneath it. */
+    @Volatile var volumeMod: Float = 1f
+    /** 0 none, 1 lowpass, 2 highpass. */
+    @Volatile var filterType: Int = 0
+    @Volatile var filterFraction: Float = 1f
+    @Volatile var useEcho: Boolean = false
+    @Volatile var echoDelaySamples: Int = 48_000
+    @Volatile var echoFeedback: Float = 0.75f
+    @Volatile var lfoPitchTime: Double = 0.0
+    @Volatile var lfoPitchAmount: Double = 0.0
+    @Volatile var lfoVolumeTime: Double = 0.0
+    @Volatile var lfoVolumeAmount: Double = 0.0
+    /** Playthrough count; -1 = infinite (JS default 1 = play once). */
+    @Volatile var maxLoop: Int = 1
+    /** One-shot seek request in JS-domain samples; the mixer consumes values >= 0. */
+    @Volatile var seekPosition: Double = -1.0
+}
+
+class Voice(
     val clip: PcmClip,
     val params: VoiceParams,
+    val dsp: DspParams,
 ) {
     @Volatile var stopRequested: Boolean = false
-    /** True once the source drained every synthesized sample (or was stopped). */
+    /** True once the source drained everything (or was stopped). */
     @Volatile var finished: Boolean = false
 
     // DSP-thread state.
     internal var source = 0
     internal var freeBuffers = IntArray(0)
     internal var freeCount = 0
+    /** JS-domain playhead (advances by jsSpeed per output sample). */
     internal var position = 0.0
+    internal var donePlaying = false
+    internal var filterSm = 0f
+    internal var echoBuffer: FloatArray? = null
     internal var allQueued = false
     internal var initialized = false
 
@@ -51,31 +77,45 @@ class Voice internal constructor(
 
 /**
  * The mixer: a dedicated daemon thread owning our own AL sources on Minecraft's AL context.
- * OpenAL has no per-thread context binding, so calling AL from this thread is safe as long
- * as the game has initialized its sound library — and vanilla keeps the AL listener
- * (position, orientation, master gain) updated every frame for free.
+ * OpenAL has no per-thread context binding, so calling AL from this thread is safe once the
+ * game's sound library exists — and vanilla keeps the AL listener (position, orientation,
+ * master gain) updated every frame for free.
+ *
+ * Per-voice synthesis is the faithful mono port of the webaudio.lua ScriptProcessor loop:
+ * nearest-neighbor rate conversion (that aliasing IS the chatsounds sound), one-pole
+ * filters, feedback-echo ring buffer, pitch/volume LFOs, sticky reverse, sample-accurate
+ * loop counting, and loudness normalization folded underneath every modifier. Deliberate
+ * divergences: 3D pan/attenuation is OpenAL's job (GMod hand-rolled it), per-voice clamping
+ * replaces the shared-output clamp, and one-pole filter state persists across blocks
+ * (GMod's reset every ScriptProcessor callback was an artifact of the block boundary).
  */
 object AudioEngine {
     private const val OUT_RATE = 48_000
     private const val BLOCK_FRAMES = 960 // 20 ms
     private const val QUEUE_DEPTH = 4
+    /** Echo tails ring out until quieter than this (GMod kept them until stream removal). */
+    private const val ECHO_TAIL_FLOOR = 1e-4f
 
     private val pending = ConcurrentLinkedQueue<Voice>()
     private val voices = CopyOnWriteArrayList<Voice>()
     @Volatile private var stopAllRequested = false
     @Volatile private var running = false
 
+    internal val blockFloats = FloatArray(BLOCK_FRAMES)
     private val blockShorts = ShortArray(BLOCK_FRAMES)
     private val blockBytes: ByteBuffer = ByteBuffer.allocateDirect(BLOCK_FRAMES * 2).order(ByteOrder.nativeOrder())
 
     fun start() {
         if (running) return
-        running = true
+        synchronized(this) {
+            if (running) return
+            running = true
+        }
         thread(name = "chatsounds-audio", isDaemon = true) { runLoop() }
     }
 
-    fun play(clip: PcmClip, params: VoiceParams): Voice {
-        val voice = Voice(clip, params)
+    fun play(clip: PcmClip, params: VoiceParams, dsp: DspParams): Voice {
+        val voice = Voice(clip, params, dsp)
         pending.add(voice)
         return voice
     }
@@ -147,7 +187,6 @@ object AudioEngine {
             return
         }
 
-        // Reclaim processed buffers.
         var processed = AL10.alGetSourcei(src, AL10.AL_BUFFERS_PROCESSED)
         while (processed-- > 0) {
             val buf = AL10.alSourceUnqueueBuffers(src)
@@ -156,7 +195,6 @@ object AudioEngine {
             }
         }
 
-        // Apply game-thread params.
         val p = voice.params
         AL10.alSourcei(src, AL10.AL_SOURCE_RELATIVE, if (p.relative) AL10.AL_TRUE else AL10.AL_FALSE)
         if (p.relative) {
@@ -167,10 +205,14 @@ object AudioEngine {
         AL10.alSourcef(src, AL10.AL_MAX_DISTANCE, p.maxDistance)
         AL10.alSourcef(src, AL10.AL_GAIN, maxOf(0f, p.volume))
 
-        // Synthesize while the queue has room.
         while (!voice.allQueued && voice.freeCount > 0) {
             val produced = synthesizeBlock(voice)
             if (produced == 0) break
+            for (i in 0 until produced) {
+                var v = blockFloats[i]
+                if (v > 1f) v = 1f else if (v < -1f) v = -1f
+                blockShorts[i] = (v * 32767f).toInt().toShort()
+            }
             val buf = voice.freeBuffers[--voice.freeCount]
             blockBytes.clear()
             blockBytes.asShortBuffer().put(blockShorts, 0, produced)
@@ -190,32 +232,109 @@ object AudioEngine {
         }
     }
 
-    /**
-     * Fills [blockShorts]; returns frames produced (0 = clip exhausted). M1 DSP: rate
-     * conversion + normalization gain + clamp. The full parity chain (filters, echo, LFOs,
-     * loops, reverse) lands in M2 inside this loop.
-     */
-    private fun synthesizeBlock(voice: Voice): Int {
+    /** Fills [blockFloats]; returns frames produced (0 = nothing left to play). Internal for the parity tests. */
+    internal fun synthesizeBlock(voice: Voice): Int {
+        val dsp = voice.dsp
         val samples = voice.clip.samples
-        val gain = voice.clip.normalizeGain
-        val speed = voice.params.pitch.toDouble() * voice.clip.sampleRate / OUT_RATE
-        var position = voice.position
-        var produced = 0
-
-        while (produced < BLOCK_FRAMES) {
-            val idx = position.toInt()
-            if (idx >= samples.size || idx < 0) {
-                voice.allQueued = true
-                break
-            }
-            var v = samples[idx] * gain
-            if (v.isNaN()) v = 0f
-            if (v > 1f) v = 1f else if (v < -1f) v = -1f
-            blockShorts[produced++] = (v * 32767f).toInt().toShort()
-            position += speed
+        val srcLen = samples.size
+        if (srcLen == 0) {
+            voice.allQueued = true
+            return 0
         }
 
+        // JS-domain buffer length: what decodeAudioData would have produced at the output rate.
+        val srcRatio = voice.clip.sampleRate.toDouble() / OUT_RATE
+        val lenJs = Math.round(srcLen / srcRatio).coerceAtLeast(1)
+
+        val seek = dsp.seekPosition
+        if (seek >= 0) {
+            voice.position = seek
+            dsp.seekPosition = -1.0
+        }
+
+        val volBoth = dsp.volumeMod * voice.clip.normalizeGain
+        val filterType = dsp.filterType
+        val filterFraction = dsp.filterFraction
+        val useEcho = dsp.useEcho
+        val echoFeedback = dsp.echoFeedback
+        val lfoVolumeTime = dsp.lfoVolumeTime
+        val lfoVolumeAmount = dsp.lfoVolumeAmount
+        val lfoPitchTime = dsp.lfoPitchTime
+        val lfoPitchAmount = dsp.lfoPitchAmount
+        val maxLoop = dsp.maxLoop
+        val reverse = dsp.reverse
+        val baseSpeed = dsp.jsSpeed
+
+        var echoDelay = 0
+        var echo: FloatArray? = null
+        if (useEcho) {
+            echoDelay = dsp.echoDelaySamples.coerceAtLeast(1)
+            var size = 1
+            while (size < echoDelay) size = size shl 1
+            if (voice.echoBuffer?.size != size) voice.echoBuffer = FloatArray(size)
+            echo = voice.echoBuffer
+        }
+
+        var sm = voice.filterSm
+        var position = voice.position
+        var done = voice.donePlaying
+        var produced = 0
+        var blockPeak = 0f
+
+        while (produced < BLOCK_FRAMES) {
+            if (done || (maxLoop > 0 && position > lenJs.toDouble() * maxLoop)) {
+                done = true
+                if (!useEcho) break
+            }
+
+            var indexJs = (position.toLong() % lenJs)
+            if (reverse) indexJs = lenJs - indexJs
+            val srcIndex = ((indexJs * srcRatio).toInt()).coerceIn(0, srcLen - 1)
+
+            var out = 0f
+            if (!done) {
+                val raw = samples[srcIndex]
+                if (filterType == 0) {
+                    out = raw * volBoth
+                } else {
+                    sm += (raw - sm) * filterFraction
+                    out = (if (filterType == 1) sm else raw - sm) * volBoth
+                }
+                if (out > 1f) out = 1f else if (out < -1f) out = -1f
+            }
+
+            if (lfoVolumeTime != 0.0) {
+                out = (out * sin(position / OUT_RATE * 10.0 * lfoVolumeTime) * lfoVolumeAmount).toFloat()
+            }
+
+            if (useEcho && echo != null) {
+                val echoIndex = (position.toLong() % echoDelay).toInt()
+                echo[echoIndex] = echo[echoIndex] * echoFeedback + out
+                out = echo[echoIndex]
+            }
+
+            var speed = baseSpeed
+            if (lfoPitchTime != 0.0) {
+                speed -= sin(position / OUT_RATE * 10.0 * lfoPitchTime) * lfoPitchAmount
+                val half = lfoPitchAmount * 0.5
+                speed += half * half
+            }
+            position += speed
+
+            if (out.isNaN() || out.isInfinite()) out = 0f
+            val a = if (out < 0) -out else out
+            if (a > blockPeak) blockPeak = a
+            blockFloats[produced++] = out
+        }
+
+        voice.filterSm = sm
         voice.position = position
+        voice.donePlaying = done
+
+        // Echo tails ring out after the dry signal ends; cut once inaudible.
+        if (done && (!useEcho || (produced > 0 && blockPeak < ECHO_TAIL_FLOOR))) {
+            voice.allQueued = true
+        }
         return produced
     }
 
@@ -227,5 +346,6 @@ object AudioEngine {
         AL10.alDeleteSources(voice.source)
         for (i in 0 until voice.freeCount) AL10.alDeleteBuffers(voice.freeBuffers[i])
         voice.initialized = false
+        voice.echoBuffer = null
     }
 }

@@ -2,12 +2,17 @@ package gg.earu.chatsounds.playback
 
 import gg.earu.chatsounds.Chatsounds
 import gg.earu.chatsounds.audio.AudioEngine
+import gg.earu.chatsounds.audio.DspParams
 import gg.earu.chatsounds.audio.PcmCache
 import gg.earu.chatsounds.audio.Voice
 import gg.earu.chatsounds.audio.VoiceParams
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.data.SoundVariant
-import gg.earu.chatsounds.parser.TriggerMatcher
+import gg.earu.chatsounds.modifiers.ModifierInstance
+import gg.earu.chatsounds.parser.GroupNode
+import gg.earu.chatsounds.parser.ParseNode
+import gg.earu.chatsounds.parser.Parser
+import gg.earu.chatsounds.parser.SoundNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,32 +21,43 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.minecraft.client.Minecraft
 import net.minecraft.sounds.SoundSource
-import java.util.UUID
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.math.abs
+import kotlin.math.max
+import kotlin.random.Random
 
 /**
- * Client playback orchestration (port of player.lua's client half). A message splits on ';'
- * into independent parallel contexts; within one context downloads are launched up front and
- * sounds then play strictly in order, each "done" after its duration (minus the trailing
- * white-noise fudge) while the tail may keep ringing.
+ * Client playback orchestration — the full port of player.lua's client half. A message
+ * splits on ';' into independent parallel contexts; within one context the AST is flattened
+ * (repeat duplication, ancestor modifier inheritance), variants get picked (seeded +
+ * realm-matched), downloads fire up front, and sounds then play strictly in order — each
+ * "done" after its (modifier-scaled) duration while overlapping tails keep ringing.
  */
 object ChatsoundsPlayer {
     private const val CONTEXT_SEPARATOR = ';'
+    private const val OUT_RATE = 48_000
 
     /** GMod trims ~75 ms of trailing hiss off every sound's scheduling duration. */
     private const val WHITENOISE_FUDGE_SECONDS = 0.075
+
+    /** flatten_sounds guard: repeat modifiers cannot expand a message past this. */
+    private const val MAX_ITERATIONS = 100
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile var enabled = true
 
-    private class ActiveSound(val speakerId: UUID?, val params: VoiceParams, val voice: Voice)
+    private class ActiveSound(
+        val speakerId: UUID?,
+        val params: VoiceParams,
+        val voice: Voice,
+        val stream: ChatStream,
+        val modifiers: List<ModifierInstance>,
+    )
 
     private val activeSounds = CopyOnWriteArrayList<ActiveSound>()
 
-    /** Plays every chatsound in [text], positioned at the player entity [speakerId] (null = local/unpositioned). */
     fun play(speakerId: UUID?, text: String) {
         if (!enabled) return
         if (DataLoader.loading != null) return
@@ -49,7 +65,13 @@ object ChatsoundsPlayer {
 
         val lowered = text.lowercase(Locale.ROOT)
         for (chunk in lowered.split(CONTEXT_SEPARATOR)) {
-            scope.launch { playContext(speakerId, chunk) }
+            scope.launch {
+                try {
+                    playContext(speakerId, chunk)
+                } catch (e: Exception) {
+                    Chatsounds.logger.error("Failed to play chatsounds context", e)
+                }
+            }
         }
     }
 
@@ -57,34 +79,105 @@ object ChatsoundsPlayer {
         AudioEngine.stopAll()
     }
 
-    private suspend fun playContext(speakerId: UUID?, chunk: String) {
-        val lookup = DataLoader.lookup
-        val triggers = TriggerMatcher.parseSoundTriggers(chunk, lookup)
-        if (triggers.isEmpty()) return
+    // ---- AST flattening (player.lua flatten_sounds / get_all_modifiers / sound_pre_process) ----
 
-        // Seeded like GMod (rounded current time + i * 1028) so clients hearing the same
-        // message at the same moment pick the same variants.
-        val timeSeed = System.currentTimeMillis() / 1000L
+    private fun getAllModifiers(scope: GroupNode?, out: MutableList<ModifierInstance>) {
+        var cur = scope
+        while (cur != null) {
+            cur.modifiers?.forEach { if (!it.def.noInheritance) out.add(it) }
+            cur = cur.parent
+        }
+    }
 
-        class Queued(val trigger: TriggerMatcher.SoundTrigger, val variant: SoundVariant?)
+    private fun duplicateCount(modifiers: List<ModifierInstance>?): Int {
+        modifiers?.forEach { inst ->
+            inst.def.duplicateCount(inst)?.let { return it }
+        }
+        return 1
+    }
 
-        var lastSound: SoundVariant? = null
-        val queued = triggers.mapIndexed { i, trigger ->
-            if (trigger.key == "sh") return@mapIndexed Queued(trigger, null)
-            val variant = VariantSelector.select(
-                lookup.list[trigger.key].orEmpty(),
-                lastSound,
-                seed = timeSeed + i * 1028L,
-            ) ?: return@mapIndexed Queued(trigger, null)
-            lastSound = variant
-            Queued(trigger, variant)
+    private fun flattenSounds(group: GroupNode, out: MutableList<SoundNode> = ArrayList(), totalIters: IntArray = intArrayOf(0)): MutableList<SoundNode> {
+        fun addIters(input: Int): Int {
+            var iters = minOf(MAX_ITERATIONS, input)
+            if (totalIters[0] + iters > MAX_ITERATIONS) iters = 1
+            totalIters[0] += iters
+            return iters
         }
 
-        // Downloads all fire immediately (bounded by the HTTP queue); playback then walks in order.
+        for (child in group.children) {
+            when {
+                child is SoundNode -> {
+                    val iters = addIters(duplicateCount(child.modifiers))
+                    repeat(iters) {
+                        // GMod parity: inherited modifiers append to the SAME node each iteration.
+                        getAllModifiers(child.parentScope, child.modifiers)
+                        out.add(child)
+                    }
+                }
+                child is GroupNode && !child.isModifierExpression -> {
+                    val iters = addIters(duplicateCount(child.modifiers))
+                    repeat(iters) { flattenSounds(child, out, totalIters) }
+                }
+            }
+        }
+        return out
+    }
+
+    // ---- Variant selection (cs_player.GetWantedSound) ----
+
+    private fun getWantedSound(sound: SoundNode, lastSound: SoundVariant?, seed: Long): SoundVariant? {
+        var pool = DataLoader.lookup.list[sound.key].orEmpty()
+        if (pool.isEmpty()) return null
+
+        val rng = Random(seed)
+        var index = rng.nextInt(pool.size) + 1 // 1-based, GMod parity
+        var modified = false
+
+        for (inst in sound.modifiers) {
+            val result = inst.def.onSelection(inst, index, pool) ?: continue
+            index = result.first
+            pool = result.second
+            modified = true
+        }
+
+        // Match realms together if we can, so one sentence keeps a consistent voice.
+        if (!modified && lastSound != null) {
+            val realmPool = pool.filter { it.realm == lastSound.realm }
+            if (realmPool.isNotEmpty()) {
+                pool = realmPool
+                index = rng.nextInt(pool.size) + 1
+            }
+        }
+
+        if (pool.isEmpty()) return null
+        return pool[index.coerceIn(1, pool.size) - 1]
+    }
+
+    // ---- Context playback ----
+
+    private suspend fun playContext(speakerId: UUID?, chunk: String) {
+        val group = Parser.parse(chunk, DataLoader.lookup)
+        val sounds = flattenSounds(group)
+        if (sounds.isEmpty()) return
+
+        val timeSeed = System.currentTimeMillis() / 1000L
+
+        class Queued(val node: SoundNode, val variant: SoundVariant?)
+
+        var lastSound: SoundVariant? = null
+        val queued = sounds.mapIndexed { i, node ->
+            if (node.key == "sh") return@mapIndexed Queued(node, null)
+            val variant = getWantedSound(node, lastSound, timeSeed + i * 1028L)
+                ?: return@mapIndexed Queued(node, null)
+            lastSound = variant
+            Queued(node, variant)
+        }
+
+        // Downloads all fire immediately (bounded by the HTTP queue); playback walks in order.
         val downloads = queued.map { q -> q.variant?.let { v -> scope.async { SoundDownloader.ensure(v) } } }
 
         for ((i, q) in queued.withIndex()) {
-            if (q.trigger.key == "sh") {
+            if (q.node.key == "sh") {
                 stopAll()
                 continue
             }
@@ -100,17 +193,41 @@ object ChatsoundsPlayer {
 
             val params = VoiceParams()
             params.volume = 0f // silent until the first client tick positions it
-            val voice = AudioEngine.play(clip, params)
-            activeSounds.add(ActiveSound(speakerId, params, voice))
+            val dsp = DspParams()
+            val stream = ChatStream(clip, dsp, OUT_RATE)
+            stream.duration = clip.durationSeconds - WHITENOISE_FUDGE_SECONDS
+            stream.overlap = true
+            stream.lifetime = null
 
-            val duration = clip.durationSeconds / abs(params.pitch.toDouble()).coerceAtLeast(0.01) - WHITENOISE_FUDGE_SECONDS
-            if (duration > 0) delay((duration * 1000).toLong())
+            for (inst in q.node.modifiers) {
+                inst.def.onStreamInit(inst, stream)
+            }
+
+            val voice = AudioEngine.play(clip, params, dsp)
+            stream.voice = voice
+            activeSounds.add(ActiveSound(speakerId, params, voice, stream, q.node.modifiers))
+
+            val duration = max(0.0, stream.duration)
+
+            // A stream can outlive its scheduling slot (looping/overlap); remove it once done.
+            if (stream.overlap || stream.lifetime != null) {
+                val lifetime = max(stream.lifetime ?: duration, clip.durationSeconds)
+                scope.launch {
+                    delay(((lifetime + 1) * 1000).toLong())
+                    voice.stop()
+                }
+            }
+
+            delay((duration * 1000).toLong())
+            if (!stream.overlap && stream.lifetime == null) {
+                voice.stop()
+            }
         }
     }
 
     /**
-     * Game-thread tick: snapshot speaker entity positions and volumes into each voice's
-     * param block (read by the DSP thread at block boundaries).
+     * Game-thread tick: entity positions/volumes into each voice's param block, plus every
+     * modifier's OnStreamThink (expression-driven pitch/volume, legacy lerps, seeks).
      */
     fun clientTick() {
         if (activeSounds.isEmpty()) return
@@ -123,16 +240,20 @@ object ChatsoundsPlayer {
                 activeSounds.remove(active)
                 continue
             }
+
+            for (inst in active.modifiers) {
+                inst.def.onStreamThink(inst, active.stream)
+            }
+
             val params = active.params
             val speaker = active.speakerId?.let { level?.getPlayerByUUID(it) }
             when {
                 active.speakerId == null -> {
-                    // Local/unpositioned playback: flat volume at the listener.
                     params.relative = true
                     params.volume = categoryVolume
                 }
                 speaker == null -> {
-                    // Speaker not in this level / out of tracking range: silent (GMod's dormant behavior).
+                    // Speaker not in this level / out of tracking range: GMod's dormant behavior.
                     params.volume = 0f
                 }
                 speaker === mc.player && mc.options.cameraType.isFirstPerson -> {

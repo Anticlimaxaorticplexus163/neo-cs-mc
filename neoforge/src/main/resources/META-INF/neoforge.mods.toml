@@ -1,0 +1,31 @@
+modLoader = "kotlinforforge"
+loaderVersion = "[5,)"
+license = "AGPL-3.0"
+issueTrackerURL = "https://github.com/Earu/neo-cs-mc/issues"
+
+[[mods]]
+modId = "chatsounds"
+version = "0.1.0"
+displayName = "Chatsounds"
+description = '''
+Chat messages become sounds. A port of the Garry's Mod neo-chatsounds addon.
+Works client-side on any server; an optional server component adds spam control and repo authority.
+'''
+authors = "Earu"
+
+[[mixins]]
+config = "chatsounds.mixins.json"
+
+[[dependencies.chatsounds]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.0,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.chatsounds]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1]"
+ordering = "NONE"
+side = "BOTH"

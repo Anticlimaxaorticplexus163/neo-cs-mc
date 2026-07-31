@@ -5,16 +5,18 @@ import net.minecraft.client.resources.sounds.SoundInstance
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.concurrent.Executors
 
 /**
  * Optional Dynamic Surroundings (dsurround) integration: registers our OpenAL sources with
  * its enhanced-sound processor so chatsounds get the same environmental reverb/occlusion as
  * every other sound.
  *
- * DS keeps a static SourceContext[] indexed by AL source id; its worker thread raycasts the
- * environment per context, and Channel-tick mixins upload the EFX state via
- * SourceContext#tick(). Our voices aren't vanilla Channels, so we mirror the three touch
- * points ourselves: register on play, tick ~20 Hz from the audio thread, clear on stop.
+ * DS normally schedules SourceContexts through a static array indexed by AL source id and
+ * mixins on vanilla Channels. Our voices are neither vanilla Channels nor guaranteed to
+ * have ids inside that array, so we drive the two halves ourselves: the environment
+ * raycast (SourceContext#call) on a private worker thread ~3x/s, and the EFX upload
+ * (SourceContext#tick) from the audio thread ~20x/s — the same cadences DS uses.
  * Everything is reflective — no compile dependency, and any signature drift in DS just
  * disables the bridge with a log line.
  */
@@ -22,12 +24,16 @@ object DsurroundBridge {
     private var resolved = false
 
     private var isAvailable: Method? = null
-    private var sourcesField: Field? = null
     private var ctxCtor: Constructor<*>? = null
     private var attachSound: Method? = null
     private var enable: Method? = null
-    private var exec: Method? = null
+    private var callMethod: Method? = null
     private var tickMethod: Method? = null
+
+    /** Off-thread environment raycasting, mirroring DS's own worker pool. */
+    private val calcExecutor by lazy {
+        Executors.newSingleThreadExecutor { r -> Thread(r, "chatsounds-dsurround").apply { isDaemon = true } }
+    }
 
     /**
      * Must be called lazily (first sound play), never at client init: resolving eagerly
@@ -41,11 +47,10 @@ object DsurroundBridge {
             val processor = Class.forName("org.orecruncher.dsurround.runtime.audio.SoundFXProcessor", false, loader)
             val context = Class.forName("org.orecruncher.dsurround.runtime.audio.SourceContext", false, loader)
             isAvailable = processor.getDeclaredMethod("isAvailable")
-            sourcesField = processor.getDeclaredField("sources").apply { isAccessible = true }
             ctxCtor = context.getDeclaredConstructor(Int::class.javaPrimitiveType)
             attachSound = context.getDeclaredMethod("attachSound", SoundInstance::class.java)
             enable = context.getDeclaredMethod("enable")
-            exec = context.getDeclaredMethod("exec")
+            callMethod = context.getDeclaredMethod("call")
             tickMethod = context.getDeclaredMethod("tick")
             resolved = true
             Chatsounds.logger.info("Dynamic Surroundings detected — chatsounds voices will get environmental reverb")
@@ -62,22 +67,26 @@ object DsurroundBridge {
         false
     }
 
-    /** Registers an AL source with DS; returns the SourceContext handle or null. */
+    /** Creates a DS SourceContext for an AL source; returns the handle or null. */
     fun register(sourceId: Int, sound: SoundInstance): Any? {
         if (!active()) return null
         return try {
-            val sources = sourcesField!!.get(null) as? Array<Any?> ?: return null
-            val index = sourceId - 1
-            if (index !in sources.indices) return null // beyond DS's tracked range
             val ctx = ctxCtor!!.newInstance(sourceId)
             attachSound!!.invoke(ctx, sound)
             enable!!.invoke(ctx)
-            exec!!.invoke(ctx) // initial environment evaluation, DS onSourcePlay parity
-            sources[index] = ctx
+            calc(ctx) // initial environment evaluation
             ctx
         } catch (e: Throwable) {
             Chatsounds.logger.debug("dsurround register failed: {}", e.toString())
             null
+        }
+    }
+
+    /** Schedules the environment raycast off-thread (SourceContext#call). */
+    fun calc(ctx: Any) {
+        if (!active()) return
+        calcExecutor.execute {
+            runCatching { callMethod!!.invoke(ctx) }
         }
     }
 
@@ -86,11 +95,8 @@ object DsurroundBridge {
         runCatching { tickMethod!!.invoke(ctx) }
     }
 
-    fun unregister(sourceId: Int, ctx: Any) {
-        runCatching {
-            val sources = sourcesField!!.get(null) as? Array<Any?> ?: return
-            val index = sourceId - 1
-            if (index in sources.indices && sources[index] === ctx) sources[index] = null
-        }
+    fun unregister(@Suppress("UNUSED_PARAMETER") sourceId: Int, @Suppress("UNUSED_PARAMETER") ctx: Any) {
+        // Nothing to clear: the context was never handed to DS's scheduler, and its AL
+        // filter objects die with the source.
     }
 }

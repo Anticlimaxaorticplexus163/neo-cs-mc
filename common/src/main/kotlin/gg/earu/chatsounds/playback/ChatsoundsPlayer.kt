@@ -273,10 +273,9 @@ object ChatsoundsPlayer {
                     // Speaker not in this level / out of tracking range: GMod's dormant behavior.
                     params.volume = 0f
                 }
-                speaker === mc.player && mc.options.cameraType.isFirstPerson -> {
-                    params.relative = true
-                    params.volume = categoryVolume
-                }
+                // Own voice stays positional (a source at the listener sounds like flat
+                // playback anyway) so environmental processors like Dynamic Surroundings
+                // don't skip it the way they skip relative sounds.
                 else -> {
                     params.relative = false
                     val eye = speaker.eyePosition

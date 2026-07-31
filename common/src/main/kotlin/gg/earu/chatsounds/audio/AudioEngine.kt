@@ -236,18 +236,18 @@ object AudioEngine {
             voice.finished = true
         }
 
-        // Dynamic Surroundings reverb bridge, throttled to its own ~20 Hz cadence. Register
-        // once the voice is positioned (first client tick raises the volume from 0).
-        if (++voice.dsCounter >= 10) {
-            voice.dsCounter = 0
-            val ctx = voice.dsContext
-            if (ctx != null) {
-                gg.earu.chatsounds.client.compat.DsurroundBridge.tick(ctx)
-            } else if (!p.relative && p.volume > 0f) {
-                voice.dsContext = gg.earu.chatsounds.client.compat.DsurroundBridge.register(
-                    src, gg.earu.chatsounds.client.compat.VoiceSoundInstance(p)
-                )
-            }
+        // Dynamic Surroundings reverb bridge: EFX upload ~20x/s, environment re-raycast
+        // ~3x/s (DS's own cadences). Register once the voice is positioned (the first
+        // client tick raises the volume from 0).
+        voice.dsCounter++
+        val ctx = voice.dsContext
+        if (ctx != null) {
+            if (voice.dsCounter % 10 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.tick(ctx)
+            if (voice.dsCounter % 70 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.calc(ctx)
+        } else if (voice.dsCounter % 10 == 0 && !p.relative && p.volume > 0f) {
+            voice.dsContext = gg.earu.chatsounds.client.compat.DsurroundBridge.register(
+                src, gg.earu.chatsounds.client.compat.VoiceSoundInstance(p)
+            )
         }
     }
 

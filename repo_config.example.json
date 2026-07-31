@@ -8,6 +8,5 @@
     { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "l4d", "UseMsgPack": true },
     { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "l4d2", "UseMsgPack": true },
     { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "portal", "UseMsgPack": true },
-    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "tf2", "UseMsgPack": true },
-    { "Repo": "Metastruct/garrysmod-chatsounds", "Branch": "master", "BasePath": "sound/chatsounds/autoadd", "UseMsgPack": false }
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "tf2", "UseMsgPack": true }
 ]

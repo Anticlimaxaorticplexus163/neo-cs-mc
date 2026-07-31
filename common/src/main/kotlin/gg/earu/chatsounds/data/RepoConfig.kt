@@ -24,14 +24,10 @@ data class RepoEntry(
 object RepoConfig {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
 
-    // GMod-default parity: valve lists only. Community repos (e.g.
-    // Metastruct/garrysmod-chatsounds) are opt-in via repo_config.json.
-    val default: List<RepoEntry> =
-        listOf("csgo", "css", "ep1", "ep2", "hl1", "hl2", "l4d", "l4d2", "portal", "tf2").map {
-            RepoEntry(repo = "PAC3-Server/chatsounds-valve-games", branch = "master", basePath = it, useMsgPack = true)
-        }
+    /** No repositories ship by default; users opt in via repo_config.json (an example lives in the mod's repository). */
+    val default: List<RepoEntry> = emptyList()
 
-    /** Loads config/chatsounds/repo_config.json, creating it with defaults on first run. */
+    /** Loads config/chatsounds/repo_config.json, creating an empty one on first run. */
     fun load(): List<RepoEntry> {
         val path = Chatsounds.platform.configDir.resolve("repo_config.json")
         if (!path.exists()) {

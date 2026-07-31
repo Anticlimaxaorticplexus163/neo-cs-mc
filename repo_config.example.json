@@ -1,0 +1,13 @@
+[
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "csgo", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "css", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "ep1", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "ep2", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "hl1", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "hl2", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "l4d", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "l4d2", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "portal", "UseMsgPack": true },
+    { "Repo": "PAC3-Server/chatsounds-valve-games", "Branch": "master", "BasePath": "tf2", "UseMsgPack": true },
+    { "Repo": "Metastruct/garrysmod-chatsounds", "Branch": "master", "BasePath": "sound/chatsounds/autoadd", "UseMsgPack": false }
+]

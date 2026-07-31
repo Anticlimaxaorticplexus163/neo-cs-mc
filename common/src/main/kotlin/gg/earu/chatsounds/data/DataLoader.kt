@@ -46,6 +46,12 @@ object DataLoader {
 
     fun startup() {
         repoConfig = RepoConfig.load()
+        if (repoConfig.isEmpty()) {
+            Chatsounds.logger.warn(
+                "No sound repositories configured — chatsounds will stay silent. " +
+                    "Add entries to config/chatsounds/repo_config.json (an example config ships with the mod's repository)."
+            )
+        }
         compileLists()
     }
 

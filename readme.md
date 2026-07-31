@@ -1,17 +1,15 @@
-# neo-cs-mc
+# neo-chatsounds (Minecraft Edition:tm:)
 
-Chat messages become sounds. A Kotlin Minecraft port of the Garry's Mod [neo-chatsounds](https://github.com/Earu/neo-chatsounds) addon, for **NeoForge** and **Fabric** (MC 1.21.1).
+Memes ported into your own Minecraft free of charge.
 
-- **Client-first**: parses incoming chat and plays sounds positionally from the sender — works on vanilla servers, no server install required. Plugin-reformatted chat (Paper etc.) is handled through configurable sender-extraction patterns.
-- **Optional server component**: when the mod is also on the server it takes authority — repo config sync on join, spam control (token bucket), and hearing-radius filtering, relayed over an optional channel that vanilla clients never see.
-- **Same sound data as GMod**: lists and audio download on demand from the same community GitHub repositories through a 4-CDN fallback chain (jsdelivr → statically → githack → raw.githubusercontent). Default: `PAC3-Server/chatsounds-valve-games` (csgo, css, ep1, ep2, hl1, hl2, l4d, l4d2, portal, tf2); community repos like `Metastruct/garrysmod-chatsounds` are opt-in via `repo_config.json`. The mod ships zero audio. `repo_config.json` is format-compatible with the GMod addon.
+A Kotlin Minecraft port of [neo-chatsounds](https://github.com/Earu/neo-chatsounds), for **NeoForge** and **Fabric** (MC 1.21.1).
+
+- **Client-first**: parses incoming chat and plays sounds positionally from the sender, works on vanilla servers, no server install required. Plugin-reformatted chat (Paper etc.) is handled through configurable sender-extraction patterns.
+- **Optional server component**: when the mod is also on the server it takes authority, repo config sync on join, spam control (token bucket), and hearing-radius filtering, relayed over an optional channel that vanilla clients never see.
+- **Same sound data as the original**: lists and audio download on demand from the same community GitHub repositories through a 4-CDN fallback chain (jsdelivr → statically → githack → raw.githubusercontent). Default: `PAC3-Server/chatsounds-valve-games` (csgo, css, ep1, ep2, hl1, hl2, l4d, l4d2, portal, tf2); community repos like `Metastruct/garrysmod-chatsounds` are opt-in via `repo_config.json`. The mod ships zero audio. `repo_config.json` is format-compatible with the GMod addon.
 - **Full modifier parity**: the complete parser (scopes, `:modifier(args)`, legacy `%` `^` `--` `++` `*` `#` `=` `%%` `^^` syntaxes, `[expr]` dynamic expressions, `;` parallel contexts, trailing-`!!!` yelling) and all 18 modifiers, driven by a faithful Kotlin port of the WebAudio mixer: extreme pitch (±50x, reverse), echo with feedback tails, low/high-pass, pitch/volume LFOs, sample-accurate loops, seeks, and gated-RMS loudness normalization — synthesized on a dedicated thread into our own OpenAL sources (Minecraft handles 3D spatialization natively, one deliberate improvement over GMod's hand-rolled panning).
 - **Chat autocomplete**: suggestions under the chat input backed by the ported completion trie, Tab/Shift-Tab cycling, modifier name/argument hints, `sound#` variant browsing. Vanilla `/command` completion is untouched.
 - **Dynamic Surroundings compat**: when [Dynamic Surroundings](https://github.com/OreCruncher/DynamicSurroundingsFabric) is installed with enhanced sounds enabled, chatsounds voices register with its sound processor and get the same environmental reverb/occlusion as every other sound (reflective bridge, no hard dependency).
-
-## Usage
-
-**Just type sound triggers in chat** — that's the primary way, exactly like GMod. `standing here%50` in chat plays for everyone nearby running the mod, positioned at you. Typing `sh` stops sounds — by default only your own `sh` affects your client (`shmode`).
 
 ## Commands
 
@@ -40,15 +38,3 @@ Requires JDK 21.
 ```
 
 Jars land in `neoforge/build/libs/` and `fabric/build/libs/`.
-
-## Structure
-
-- `common/` — loader-agnostic logic compiled against Mojang-mapped vanilla: parser (`parser/`), 18 modifiers (`modifiers/`), data layer + trie (`data/`), DSP audio engine (`audio/`), playback orchestration (`playback/`), completion/hide-text (`client/`), relay/spam (`server/`), shared payloads (`net/`).
-- `neoforge/` — NeoForge entrypoint, events, channel registration (Kotlin for Forge).
-- `fabric/` — Fabric entrypoints and event bridges (Fabric API + fabric-language-kotlin).
-
-Common sources compile directly into each loader jar (MultiLoader pattern); the only mixin is a `ChatScreen` input accessor.
-
-## License
-
-AGPL-3.0, same as neo-chatsounds. Sound content belongs to its respective owners and is downloaded client-side from user-configured repositories.

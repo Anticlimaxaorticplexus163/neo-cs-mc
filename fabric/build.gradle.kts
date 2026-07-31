@@ -7,6 +7,10 @@ plugins {
 repositories {
     mavenCentral()
     maven("https://maven.fabricmc.net/")
+    maven("https://api.modrinth.com/maven") {
+        name = "Modrinth"
+        content { includeGroup("maven.modrinth") }
+    }
 }
 
 val commonProject = project(":common")
@@ -17,6 +21,12 @@ dependencies {
     modImplementation(libs.fabric.loader)
     modImplementation(libs.fabric.api)
     modImplementation(libs.flk)
+
+    // Dev-only: Dynamic Surroundings (+ its Architectury/cloth-config dependencies) in
+    // runClient to exercise the reverb bridge.
+    modLocalRuntime("maven.modrinth:dynamicsurroundingsfabric:0.4.2")
+    modLocalRuntime("maven.modrinth:architectury-api:13.0.11+fabric")
+    modLocalRuntime("maven.modrinth:cloth-config:15.0.140+fabric")
 }
 
 loom {

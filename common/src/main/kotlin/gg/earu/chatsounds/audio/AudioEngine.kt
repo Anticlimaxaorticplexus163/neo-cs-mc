@@ -70,6 +70,10 @@ class Voice(
     internal var allQueued = false
     internal var initialized = false
 
+    // Dynamic Surroundings integration (reverb/occlusion), when that mod is present.
+    internal var dsContext: Any? = null
+    internal var dsCounter = 0
+
     fun stop() {
         stopRequested = true
     }
@@ -111,6 +115,7 @@ object AudioEngine {
             if (running) return
             running = true
         }
+        gg.earu.chatsounds.client.compat.DsurroundBridge.init()
         thread(name = "chatsounds-audio", isDaemon = true) { runLoop() }
     }
 
@@ -230,6 +235,20 @@ object AudioEngine {
         if (voice.allQueued && queued == 0 && state != AL10.AL_PLAYING) {
             voice.finished = true
         }
+
+        // Dynamic Surroundings reverb bridge, throttled to its own ~20 Hz cadence. Register
+        // once the voice is positioned (first client tick raises the volume from 0).
+        if (++voice.dsCounter >= 10) {
+            voice.dsCounter = 0
+            val ctx = voice.dsContext
+            if (ctx != null) {
+                gg.earu.chatsounds.client.compat.DsurroundBridge.tick(ctx)
+            } else if (!p.relative && p.volume > 0f) {
+                voice.dsContext = gg.earu.chatsounds.client.compat.DsurroundBridge.register(
+                    src, gg.earu.chatsounds.client.compat.VoiceSoundInstance(p)
+                )
+            }
+        }
     }
 
     /** Fills [blockFloats]; returns frames produced (0 = nothing left to play). Internal for the parity tests. */
@@ -340,6 +359,10 @@ object AudioEngine {
 
     private fun destroyVoice(voice: Voice) {
         if (!voice.initialized) return
+        voice.dsContext?.let {
+            gg.earu.chatsounds.client.compat.DsurroundBridge.unregister(voice.source, it)
+            voice.dsContext = null
+        }
         AL10.alSourceStop(voice.source)
         var queued = AL10.alGetSourcei(voice.source, AL10.AL_BUFFERS_QUEUED)
         while (queued-- > 0) AL10.alDeleteBuffers(AL10.alSourceUnqueueBuffers(voice.source))

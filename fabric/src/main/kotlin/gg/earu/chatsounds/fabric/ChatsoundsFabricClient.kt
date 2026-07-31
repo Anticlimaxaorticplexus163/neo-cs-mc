@@ -115,10 +115,9 @@ class ChatsoundsFabricClient : ClientModInitializer {
                 source.sendFeedback(Component.literal("[chatsounds] $message"))
             }
 
-            // No say/broadcast commands: typing triggers in chat IS the interface.
+            // No say/sh commands: typing triggers (and "sh") in chat IS the interface.
             dispatcher.register(
                 ClientCommandManager.literal("chatsounds")
-                    .then(ClientCommandManager.literal("sh").executes { ChatsoundsPlayer.stopAll(); 1 })
                     .then(ClientCommandManager.literal("toggle").executes { ctx ->
                         ClientConfig.update { it.copy(enabled = !it.enabled) }
                         feedback(ctx.source, if (ClientConfig.data.enabled) "enabled" else "disabled")

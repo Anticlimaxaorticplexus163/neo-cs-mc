@@ -87,10 +87,9 @@ object ClientEvents {
             ctx.source.sendSystemMessage(Component.literal("[chatsounds] $message"))
         }
 
-        // No say/broadcast commands: typing triggers in chat IS the interface.
+        // No say/sh commands: typing triggers (and "sh") in chat IS the interface.
         event.dispatcher.register(
             Commands.literal("chatsounds")
-                .then(Commands.literal("sh").executes { ChatsoundsPlayer.stopAll(); 1 })
                 .then(Commands.literal("toggle").executes { ctx ->
                     ClientConfig.update { it.copy(enabled = !it.enabled) }
                     feedback(ctx, if (ClientConfig.data.enabled) "enabled" else "disabled")

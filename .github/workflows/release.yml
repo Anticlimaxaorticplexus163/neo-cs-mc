@@ -4,7 +4,7 @@ name: release
 #
 # Required repository settings:
 #   secrets.MODRINTH_TOKEN — a Modrinth PAT with "create versions" scope
-#   vars.MODRINTH_ID       — the Modrinth project id (or slug)
+#   secrets.MODRINTH_ID    — the Modrinth project id (or slug)
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
       - name: Publish NeoForge to Modrinth
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-id: ${{ secrets.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: neoforge/build/libs/chatsounds-neoforge-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (NeoForge)
@@ -56,7 +56,7 @@ jobs:
       - name: Publish Fabric to Modrinth
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-id: ${{ secrets.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: fabric/build/libs/chatsounds-fabric-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (Fabric)

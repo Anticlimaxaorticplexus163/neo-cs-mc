@@ -11,15 +11,26 @@ import net.minecraft.sounds.SoundSource
 
 /**
  * Minimal SoundInstance facade over a voice's live params, handed to Dynamic Surroundings.
- * DS only reads position (captureState) and category; it never resolves the sound through
- * the sound manager.
+ * DS reads position (captureState), category, and — inside its inRange gate — the resolved
+ * Sound's attenuation distance, so a real Sound object must be provided (a null there NPEs
+ * inside DS and every environment calculation silently clears to dry).
  */
 class VoiceSoundInstance(private val params: VoiceParams) : SoundInstance {
     private val location = ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "voice")
+    private val sound = Sound(
+        location,
+        net.minecraft.util.valueproviders.ConstantFloat.of(1f),
+        net.minecraft.util.valueproviders.ConstantFloat.of(1f),
+        1,
+        Sound.Type.FILE,
+        false,
+        false,
+        params.maxDistance.toInt(),
+    )
 
     override fun getLocation(): ResourceLocation = location
     override fun resolve(manager: SoundManager): WeighedSoundEvents? = null
-    override fun getSound(): Sound? = null
+    override fun getSound(): Sound = sound
     override fun getSource(): SoundSource = SoundSource.PLAYERS
     override fun isLooping(): Boolean = false
     override fun isRelative(): Boolean = params.relative

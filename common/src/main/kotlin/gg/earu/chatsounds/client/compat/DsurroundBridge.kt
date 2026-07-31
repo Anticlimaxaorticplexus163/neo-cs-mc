@@ -96,11 +96,20 @@ object DsurroundBridge {
         }
     }
 
+    private var loggedCalcFailure = false
+
     /** Schedules the environment raycast off-thread (SourceContext#call). */
     fun calc(ctx: Any) {
         if (!active()) return
         calcExecutor.execute {
-            runCatching { callMethod!!.invoke(ctx) }
+            try {
+                callMethod!!.invoke(ctx)
+            } catch (e: Throwable) {
+                if (!loggedCalcFailure) {
+                    loggedCalcFailure = true
+                    Chatsounds.logger.warn("dsurround environment calc failed (reverb will stay dry)", e)
+                }
+            }
         }
     }
 

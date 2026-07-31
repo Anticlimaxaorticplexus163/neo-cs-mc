@@ -115,28 +115,31 @@ class ChatsoundsFabricClient : ClientModInitializer {
                 source.sendFeedback(Component.literal("[chatsounds] $message"))
             }
 
+            // GMod parity: saying a sound broadcasts by default, like the saysound concommand.
+            fun saySound(text: String) {
+                if (ClientPlayNetworking.canSend(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
+                    ClientPlayNetworking.send(ChatsoundsPayloads.SaySoundPayload(text))
+                } else {
+                    Minecraft.getInstance().connection?.sendChat(text)
+                }
+            }
+
+            dispatcher.register(
+                ClientCommandManager.literal("saysound").then(
+                    ClientCommandManager.argument("text", StringArgumentType.greedyString()).executes { ctx ->
+                        saySound(StringArgumentType.getString(ctx, "text"))
+                        1
+                    }
+                )
+            )
+
             dispatcher.register(
                 ClientCommandManager.literal("chatsounds")
                     .then(ClientCommandManager.literal("sh").executes { ChatsoundsPlayer.stopAll(); 1 })
                     .then(
                         ClientCommandManager.literal("say").then(
                             ClientCommandManager.argument("text", StringArgumentType.greedyString()).executes { ctx ->
-                                AudioEngine.start()
-                                ChatsoundsPlayer.play(null, StringArgumentType.getString(ctx, "text"))
-                                1
-                            }
-                        )
-                    )
-                    .then(
-                        ClientCommandManager.literal("broadcast").then(
-                            ClientCommandManager.argument("text", StringArgumentType.greedyString()).executes { ctx ->
-                                val text = StringArgumentType.getString(ctx, "text")
-                                if (ClientPlayNetworking.canSend(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
-                                    ClientPlayNetworking.send(ChatsoundsPayloads.SaySoundPayload(text))
-                                } else {
-                                    AudioEngine.start()
-                                    ChatsoundsPlayer.play(null, text)
-                                }
+                                saySound(StringArgumentType.getString(ctx, "text"))
                                 1
                             }
                         )

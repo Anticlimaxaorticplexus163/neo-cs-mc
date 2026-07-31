@@ -87,29 +87,24 @@ object ClientEvents {
             ctx.source.sendSystemMessage(Component.literal("[chatsounds] $message"))
         }
 
+        // GMod parity: `saysound` broadcasts by default (like the GMod concommand),
+        // `local` is the chatsounds_local_say equivalent.
+        event.dispatcher.register(
+            Commands.literal("saysound").then(
+                Commands.argument("text", StringArgumentType.greedyString()).executes { ctx ->
+                    saySound(StringArgumentType.getString(ctx, "text"))
+                    1
+                }
+            )
+        )
+
         event.dispatcher.register(
             Commands.literal("chatsounds")
                 .then(Commands.literal("sh").executes { ChatsoundsPlayer.stopAll(); 1 })
                 .then(
                     Commands.literal("say").then(
                         Commands.argument("text", StringArgumentType.greedyString()).executes { ctx ->
-                            AudioEngine.start()
-                            ChatsoundsPlayer.play(null, StringArgumentType.getString(ctx, "text"))
-                            1
-                        }
-                    )
-                )
-                .then(
-                    Commands.literal("broadcast").then(
-                        Commands.argument("text", StringArgumentType.greedyString()).executes { ctx ->
-                            val text = StringArgumentType.getString(ctx, "text")
-                            val connection = Minecraft.getInstance().connection
-                            if (connection != null && connection.hasChannel(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
-                                connection.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(text)))
-                            } else {
-                                AudioEngine.start()
-                                ChatsoundsPlayer.play(null, text)
-                            }
+                            saySound(StringArgumentType.getString(ctx, "text"))
                             1
                         }
                     )
@@ -168,6 +163,20 @@ object ClientEvents {
                     1
                 })
         )
+    }
+
+    /**
+     * Broadcast like GMod's saysound: through the server mod's channel when present
+     * (invisible, server-authoritative), otherwise as a regular chat message so every
+     * nearby modded client still hears it.
+     */
+    private fun saySound(text: String) {
+        val connection = Minecraft.getInstance().connection ?: return
+        if (connection.hasChannel(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
+            connection.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(text)))
+        } else {
+            connection.sendChat(text)
+        }
     }
 
     private fun blockCommand(ctx: CommandContext<CommandSourceStack>, block: Boolean): Int {

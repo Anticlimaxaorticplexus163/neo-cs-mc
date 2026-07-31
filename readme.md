@@ -8,13 +8,16 @@ Chat messages become sounds. A Kotlin Minecraft port of the Garry's Mod [neo-cha
 - **Full modifier parity**: the complete parser (scopes, `:modifier(args)`, legacy `%` `^` `--` `++` `*` `#` `=` `%%` `^^` syntaxes, `[expr]` dynamic expressions, `;` parallel contexts, trailing-`!!!` yelling) and all 18 modifiers, driven by a faithful Kotlin port of the WebAudio mixer: extreme pitch (±50x, reverse), echo with feedback tails, low/high-pass, pitch/volume LFOs, sample-accurate loops, seeks, and gated-RMS loudness normalization — synthesized on a dedicated thread into our own OpenAL sources (Minecraft handles 3D spatialization natively, one deliberate improvement over GMod's hand-rolled panning).
 - **Chat autocomplete**: suggestions under the chat input backed by the ported completion trie, Tab/Shift-Tab cycling, modifier name/argument hints, `sound#` variant browsing. Vanilla `/command` completion is untouched.
 
+## Usage
+
+**Just type sound triggers in chat** — that's the primary way, exactly like GMod. `standing here%50` in chat plays for everyone nearby running the mod, positioned at you. Typing `sh` stops sounds — by default only your own `sh` affects your client (`shmode`).
+
 ## Commands
 
 | Command | Effect |
 |---|---|
-| `/chatsounds say <text>` | play locally only |
-| `/chatsounds broadcast <text>` | play for others via the server mod (falls back to local) |
-| `/chatsounds sh` | stop all sounds (typing `sh` in chat works too, see `shmode`) |
+| `/saysound <text>` (alias `/chatsounds say`) | broadcast a sound message: server-mod channel when present, otherwise sent as a normal chat message |
+| `/chatsounds sh` | stop all sounds |
 | `/chatsounds toggle` · `volume <0-4>` · `hidetext` · `shmode <0-2>` | client settings |
 | `/chatsounds block/unblock sound <index> <key>` (or `realm <name>`, `repository <name>`) | blacklist |
 | `/chatsounds reload` · `reloadfull` · `clearcache` | list/cache maintenance |

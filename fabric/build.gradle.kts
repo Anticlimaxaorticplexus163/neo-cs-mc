@@ -25,6 +25,9 @@ dependencies {
     // Dynamic Surroundings has no 1.21.11 build yet; re-add the dev-runtime deps here
     // (dynamicsurroundingsfabric + architectury-api + cloth-config + nashorn-core) to
     // exercise the reverb bridge once it ships.
+
+    // Dev-only: Sound Physics Remastered in runClient to exercise its bridge.
+    modLocalRuntime("maven.modrinth:sound-physics-remastered:fabric-1.21.11-1.5.1")
 }
 
 loom {

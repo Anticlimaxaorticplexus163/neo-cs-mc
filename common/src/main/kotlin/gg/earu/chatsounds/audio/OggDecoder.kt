@@ -11,8 +11,13 @@ import org.lwjgl.system.libc.LibCStdlib
  * wants the whole buffer in memory, same as the GMod addon's decodeAudioData approach.
  */
 object OggDecoder {
-    /** Refuse to fully decode absurdly long files (config later); ~60s at 48k stereo ≈ 23 MB of floats. */
-    private const val MAX_DURATION_SECONDS = 60
+    /**
+     * Guard against absurdly long files. Chatsounds music clips legitimately run minutes
+     * ("over the horizon" is 61s), so this is a safety net, not a policy — GMod had no cap
+     * at all. A 10-minute mono clip decodes to ~115 MB of floats; the LRU budget bounds the
+     * aggregate.
+     */
+    private const val MAX_DURATION_SECONDS = 600
 
     fun decode(bytes: ByteArray): PcmClip {
         val mem = MemoryUtil.memAlloc(bytes.size)

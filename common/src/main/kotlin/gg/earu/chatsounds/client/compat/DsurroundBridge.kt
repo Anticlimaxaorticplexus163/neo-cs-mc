@@ -61,6 +61,9 @@ object DsurroundBridge {
         }
     }
 
+    private var loggedInactive = false
+    private var loggedFirstRegister = false
+
     private fun active(): Boolean = resolved && try {
         isAvailable!!.invoke(null) as? Boolean == true
     } catch (_: Throwable) {
@@ -69,15 +72,26 @@ object DsurroundBridge {
 
     /** Creates a DS SourceContext for an AL source; returns the handle or null. */
     fun register(sourceId: Int, sound: SoundInstance): Any? {
-        if (!active()) return null
+        if (!resolved) return null
+        if (!active()) {
+            if (!loggedInactive) {
+                loggedInactive = true
+                Chatsounds.logger.info("Dynamic Surroundings present but its enhanced sound processor is not active — no reverb on chatsounds (check enableEnhancedSounds)")
+            }
+            return null
+        }
         return try {
             val ctx = ctxCtor!!.newInstance(sourceId)
             attachSound!!.invoke(ctx, sound)
             enable!!.invoke(ctx)
             calc(ctx) // initial environment evaluation
+            if (!loggedFirstRegister) {
+                loggedFirstRegister = true
+                Chatsounds.logger.info("Chatsounds voice registered with Dynamic Surroundings enhanced sounds (source {})", sourceId)
+            }
             ctx
         } catch (e: Throwable) {
-            Chatsounds.logger.debug("dsurround register failed: {}", e.toString())
+            Chatsounds.logger.warn("dsurround register failed: {}", e.toString())
             null
         }
     }

@@ -16,6 +16,7 @@ A Kotlin Minecraft port of [neo-chatsounds](https://github.com/Earu/neo-chatsoun
 | Command | Effect |
 |---|---|
 | `/chatsounds toggle` · `volume <0-4>` · `hidetext` · `shmode <0-2>` | client settings |
+| `/chatsounds invertprefix` | flip the `;` prefix: normally it blocks chatsounds for a message; inverted, only `;`-prefixed messages play |
 | `/chatsounds block/unblock sound <index> <key>` (or `realm <name>`, `repository <name>`) | blacklist |
 | `/chatsounds reload` · `reloadfull` · `clearcache` | list/cache maintenance |
 

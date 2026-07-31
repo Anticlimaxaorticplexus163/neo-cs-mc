@@ -137,6 +137,15 @@ object ClientEvents {
                     feedback(ctx, "hide-text ${if (ClientConfig.data.hideText) "on" else "off"}")
                     1
                 })
+                .then(Commands.literal("invertprefix").executes { ctx ->
+                    ClientConfig.update { it.copy(invertPrefix = !it.invertPrefix) }
+                    feedback(
+                        ctx,
+                        if (ClientConfig.data.invertPrefix) "inverted: only ';'-prefixed messages play chatsounds"
+                        else "normal: ';' prefix blocks chatsounds",
+                    )
+                    1
+                })
                 .then(
                     Commands.literal("shmode").then(
                         Commands.argument("mode", IntegerArgumentType.integer(0, 2)).executes { ctx ->

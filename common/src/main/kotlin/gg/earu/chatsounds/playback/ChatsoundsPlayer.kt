@@ -60,13 +60,27 @@ object ChatsoundsPlayer {
 
     private val activeSounds = CopyOnWriteArrayList<ActiveSound>()
 
+    /**
+     * The ';'-prefix gate: normally a leading ';' blocks chatsounds for a message;
+     * with invertPrefix only ';'-prefixed messages play (prefix stripped). Returns the
+     * text to parse, or null when the message should stay silent.
+     */
+    fun effectiveText(text: String): String? {
+        val prefixed = text.startsWith(CONTEXT_SEPARATOR)
+        return if (ClientConfig.data.invertPrefix) {
+            if (prefixed) text.substring(1) else null
+        } else {
+            if (prefixed) null else text
+        }
+    }
+
     /** [isOwn]: whether the local player sent the message (sh-mode 1 gating). */
     fun play(speakerId: UUID?, text: String, isOwn: Boolean = speakerId == null) {
         if (!enabled || !ClientConfig.data.enabled) return
         if (DataLoader.loading != null) return
-        if (text.startsWith(CONTEXT_SEPARATOR)) return
+        val effective = effectiveText(text) ?: return
 
-        val lowered = text.lowercase(Locale.ROOT)
+        val lowered = effective.lowercase(Locale.ROOT)
         for (chunk in lowered.split(CONTEXT_SEPARATOR)) {
             scope.launch {
                 try {

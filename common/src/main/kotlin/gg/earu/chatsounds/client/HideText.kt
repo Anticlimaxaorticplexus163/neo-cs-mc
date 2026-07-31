@@ -24,9 +24,9 @@ object HideText {
         if (!ClientConfig.data.enabled || !ClientConfig.data.hideText) return false
         if (DataLoader.loading != null) return false
 
-        val text = rawText.lowercase(Locale.ROOT)
+        val gated = gg.earu.chatsounds.playback.ChatsoundsPlayer.effectiveText(rawText) ?: return false
+        val text = gated.lowercase(Locale.ROOT)
         if (text.length < BIG_CS_THRESHOLD) return false
-        if (text.startsWith(CONTEXT_SEPARATOR)) return false
 
         val lookup = DataLoader.lookup
         if (lookup.list.containsKey(text.trim())) return true // trivially just one big sound

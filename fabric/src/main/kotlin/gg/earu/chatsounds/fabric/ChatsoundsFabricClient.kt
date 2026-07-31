@@ -161,6 +161,15 @@ class ChatsoundsFabricClient : ClientModInitializer {
                         feedback(ctx.source, "hide-text ${if (ClientConfig.data.hideText) "on" else "off"}")
                         1
                     })
+                    .then(ClientCommandManager.literal("invertprefix").executes { ctx ->
+                        ClientConfig.update { it.copy(invertPrefix = !it.invertPrefix) }
+                        feedback(
+                            ctx.source,
+                            if (ClientConfig.data.invertPrefix) "inverted: only ';'-prefixed messages play chatsounds"
+                            else "normal: ';' prefix blocks chatsounds",
+                        )
+                        1
+                    })
                     .then(
                         ClientCommandManager.literal("shmode").then(
                             ClientCommandManager.argument("mode", IntegerArgumentType.integer(0, 2)).executes { ctx ->

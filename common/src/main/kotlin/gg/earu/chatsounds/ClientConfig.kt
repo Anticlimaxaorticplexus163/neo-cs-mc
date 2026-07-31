@@ -17,6 +17,11 @@ data class ClientConfigData(
     val hideText: Boolean = false,
     /** 0: sh disabled, 1: only your own "sh" stops sounds, 2: anyone's does. */
     val shMode: Int = 1,
+    /**
+     * Normally a leading ';' BLOCKS chatsounds for that message. Inverted, only messages
+     * prefixed with ';' play (opt-in per message).
+     */
+    val invertPrefix: Boolean = false,
     /** Attenuation range in blocks for positional chatsounds. */
     val maxDistance: Double = 64.0,
     val pcmCacheMb: Int = 256,

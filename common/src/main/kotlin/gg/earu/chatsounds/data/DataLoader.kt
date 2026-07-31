@@ -33,6 +33,8 @@ object DataLoader {
 
     @Volatile var lookup: SoundLookup = SoundLookup.EMPTY
         private set
+    @Volatile var trie: CompletionTrie? = null
+        private set
     @Volatile var loading: LoadingState? = null
         private set
     @Volatile var repoConfig: List<RepoEntry> = emptyList()
@@ -78,13 +80,24 @@ object DataLoader {
         try {
             lookup = SoundLookup.merge(compiler.repositories)
             Chatsounds.logger.info("Done compiling all lists ({} keys)", lookup.list.size)
+
+            if (Chatsounds.platform.isClient) {
+                val trieFile = Chatsounds.platform.configDir.resolve("dyn_lookup.json")
+                val hash = CompletionTrie.computeHash(compiler.repositories)
+                val rebuild = forceRecompile || results.any { it }
+                var loaded = if (rebuild) null else CompletionTrie.load(trieFile, hash)
+                if (loaded == null) {
+                    Chatsounds.logger.info("Building completion trie...")
+                    loaded = CompletionTrie.build(lookup)
+                    loaded.save(trieFile, hash)
+                    Chatsounds.logger.info("Completion trie built ({} roots)", loaded.roots.size)
+                }
+                trie = loaded
+            }
         } catch (e: Exception) {
             Chatsounds.logger.error("Failed to merge repositories", e)
         } finally {
             loading = null
-            if (results.any { it } || forceRecompile) {
-                // The dynamic completion trie rebuild hooks in here in a later milestone.
-            }
             onInitialized?.invoke()
         }
     }

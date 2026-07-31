@@ -1,11 +1,13 @@
 package gg.earu.chatsounds.playback
 
 import gg.earu.chatsounds.Chatsounds
+import gg.earu.chatsounds.ClientConfig
 import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.audio.DspParams
 import gg.earu.chatsounds.audio.PcmCache
 import gg.earu.chatsounds.audio.Voice
 import gg.earu.chatsounds.audio.VoiceParams
+import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.data.SoundVariant
 import gg.earu.chatsounds.modifiers.ModifierInstance
@@ -58,8 +60,9 @@ object ChatsoundsPlayer {
 
     private val activeSounds = CopyOnWriteArrayList<ActiveSound>()
 
-    fun play(speakerId: UUID?, text: String) {
-        if (!enabled) return
+    /** [isOwn]: whether the local player sent the message (sh-mode 1 gating). */
+    fun play(speakerId: UUID?, text: String, isOwn: Boolean = speakerId == null) {
+        if (!enabled || !ClientConfig.data.enabled) return
         if (DataLoader.loading != null) return
         if (text.startsWith(CONTEXT_SEPARATOR)) return
 
@@ -67,12 +70,18 @@ object ChatsoundsPlayer {
         for (chunk in lowered.split(CONTEXT_SEPARATOR)) {
             scope.launch {
                 try {
-                    playContext(speakerId, chunk)
+                    playContext(speakerId, chunk, isOwn)
                 } catch (e: Exception) {
                     Chatsounds.logger.error("Failed to play chatsounds context", e)
                 }
             }
         }
+    }
+
+    private fun shAllowed(isOwn: Boolean): Boolean = when (ClientConfig.data.shMode) {
+        0 -> false
+        1 -> isOwn
+        else -> true
     }
 
     fun stopAll() {
@@ -155,7 +164,7 @@ object ChatsoundsPlayer {
 
     // ---- Context playback ----
 
-    private suspend fun playContext(speakerId: UUID?, chunk: String) {
+    private suspend fun playContext(speakerId: UUID?, chunk: String, isOwn: Boolean) {
         val group = Parser.parse(chunk, DataLoader.lookup)
         val sounds = flattenSounds(group)
         if (sounds.isEmpty()) return
@@ -178,7 +187,7 @@ object ChatsoundsPlayer {
 
         for ((i, q) in queued.withIndex()) {
             if (q.node.key == "sh") {
-                stopAll()
+                if (shAllowed(isOwn)) stopAll()
                 continue
             }
             val variant = q.variant ?: continue
@@ -203,11 +212,18 @@ object ChatsoundsPlayer {
                 inst.def.onStreamInit(inst, stream)
             }
 
+            val duration = max(0.0, stream.duration)
+
+            // Blocked sounds still occupy their scheduled slot silently (GMod removes the
+            // stream but lets the duration timer run).
+            if (Blacklist.isSoundBlocked(q.node.key, variant)) {
+                delay((duration * 1000).toLong())
+                continue
+            }
+
             val voice = AudioEngine.play(clip, params, dsp)
             stream.voice = voice
             activeSounds.add(ActiveSound(speakerId, params, voice, stream, q.node.modifiers))
-
-            val duration = max(0.0, stream.duration)
 
             // A stream can outlive its scheduling slot (looping/overlap); remove it once done.
             if (stream.overlap || stream.lifetime != null) {
@@ -233,7 +249,8 @@ object ChatsoundsPlayer {
         if (activeSounds.isEmpty()) return
         val mc = Minecraft.getInstance()
         val level = mc.level
-        val categoryVolume = mc.options.getSoundSourceVolume(SoundSource.PLAYERS)
+        val categoryVolume = mc.options.getSoundSourceVolume(SoundSource.PLAYERS) *
+            ClientConfig.data.volume.toFloat()
 
         for (active in activeSounds) {
             if (active.voice.finished) {

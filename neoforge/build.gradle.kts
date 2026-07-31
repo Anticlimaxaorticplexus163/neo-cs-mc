@@ -43,6 +43,7 @@ kotlin {
 // so there is no separate common artifact to bundle or relocate.
 sourceSets.main {
     kotlin.srcDir(commonProject.file("src/main/kotlin"))
+    java.srcDir(commonProject.file("src/main/java"))
     resources.srcDir(commonProject.file("src/main/resources"))
 }
 

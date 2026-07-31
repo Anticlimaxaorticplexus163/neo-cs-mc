@@ -31,6 +31,8 @@ class ChatsoundsNeoForge(container: ModContainer, modBus: IEventBus) {
     object ModBusEvents {
         @SubscribeEvent
         fun onClientSetup(@Suppress("UNUSED_PARAMETER") event: FMLClientSetupEvent) {
+            gg.earu.chatsounds.ClientConfig.load()
+            gg.earu.chatsounds.data.Blacklist.load()
             // List compilation is fully async; playback and completion gate on DataLoader state.
             DataLoader.startup()
         }

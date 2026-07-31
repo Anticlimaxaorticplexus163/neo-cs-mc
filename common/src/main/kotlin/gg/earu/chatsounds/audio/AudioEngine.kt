@@ -105,6 +105,15 @@ object AudioEngine {
     @Volatile private var stopAllRequested = false
     @Volatile private var running = false
 
+    /**
+     * Sources within this many blocks of the listener pan omnidirectionally instead of
+     * hard left/right (AL_EXT_SOURCE_RADIUS). Without it, a voice at your own head flips
+     * ears constantly from tiny listener/source offsets while moving or looking around.
+     */
+    private const val NEAR_FIELD_RADIUS = 2f
+    private var sourceRadiusSupported = false
+    private var checkedSourceRadius = false
+
     internal val blockFloats = FloatArray(BLOCK_FRAMES)
     private val blockShorts = ShortArray(BLOCK_FRAMES)
     private val blockBytes: ByteBuffer = ByteBuffer.allocateDirect(BLOCK_FRAMES * 2).order(ByteOrder.nativeOrder())
@@ -180,6 +189,15 @@ object AudioEngine {
         AL10.alSourcef(voice.source, AL10.AL_ROLLOFF_FACTOR, 1f)
         AL10.alSourcef(voice.source, AL10.AL_REFERENCE_DISTANCE, 0f)
         AL10.alSourcef(voice.source, AL10.AL_MAX_DISTANCE, voice.params.maxDistance)
+
+        if (!checkedSourceRadius) {
+            checkedSourceRadius = true
+            sourceRadiusSupported = AL10.alIsExtensionPresent("AL_EXT_SOURCE_RADIUS")
+        }
+        if (sourceRadiusSupported) {
+            AL10.alSourcef(voice.source, org.lwjgl.openal.EXTSourceRadius.AL_SOURCE_RADIUS, NEAR_FIELD_RADIUS)
+        }
+
         voice.initialized = true
     }
 

@@ -5,7 +5,7 @@ issueTrackerURL = "https://github.com/Earu/neo-cs-mc/issues"
 
 [[mods]]
 modId = "chatsounds"
-version = "0.1.0"
+version = "${version}"
 displayName = "Chatsounds"
 description = '''
 Chat messages become sounds. A port of the Garry's Mod neo-chatsounds addon.

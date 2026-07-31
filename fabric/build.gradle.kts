@@ -43,6 +43,17 @@ kotlin {
     jvmToolchain(21)
 }
 
+base {
+    archivesName = "chatsounds-fabric"
+}
+
+tasks.processResources {
+    inputs.property("version", project.version)
+    filesMatching("fabric.mod.json") {
+        expand("version" to project.version)
+    }
+}
+
 // MultiLoader pattern: common's sources compile directly into this module's jar.
 sourceSets.main {
     kotlin.srcDir(commonProject.file("src/main/kotlin"))

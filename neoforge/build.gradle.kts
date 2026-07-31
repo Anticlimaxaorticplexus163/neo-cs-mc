@@ -39,6 +39,17 @@ kotlin {
     jvmToolchain(21)
 }
 
+base {
+    archivesName = "chatsounds-neoforge"
+}
+
+tasks.processResources {
+    inputs.property("version", project.version)
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand("version" to project.version)
+    }
+}
+
 // MultiLoader pattern: common's sources compile directly into this module's jar,
 // so there is no separate common artifact to bundle or relocate.
 sourceSets.main {

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "chatsounds",
+  "version": "0.1.0",
+  "name": "Chatsounds",
+  "description": "Chat messages become sounds. A port of the Garry's Mod neo-chatsounds addon.",
+  "authors": ["Earu"],
+  "contact": {
+    "issues": "https://github.com/Earu/neo-cs-mc/issues",
+    "sources": "https://github.com/Earu/neo-cs-mc"
+  },
+  "license": "AGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      {
+        "adapter": "kotlin",
+        "value": "gg.earu.chatsounds.fabric.ChatsoundsFabric"
+      }
+    ],
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "gg.earu.chatsounds.fabric.ChatsoundsFabricClient"
+      }
+    ]
+  },
+  "mixins": ["chatsounds.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.13.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

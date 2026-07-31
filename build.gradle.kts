@@ -1,6 +1,7 @@
 plugins {
     // Declare plugin versions once; subprojects apply them.
     alias(libs.plugins.moddev) apply false
+    alias(libs.plugins.loom) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
 }

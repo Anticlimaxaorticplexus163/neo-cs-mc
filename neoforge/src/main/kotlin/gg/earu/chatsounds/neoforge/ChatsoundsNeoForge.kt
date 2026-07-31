@@ -10,6 +10,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.fml.loading.FMLPaths
 import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent
 
 @Mod(Chatsounds.MOD_ID)
 class ChatsoundsNeoForge(container: ModContainer, modBus: IEventBus) {
@@ -22,13 +23,20 @@ class ChatsoundsNeoForge(container: ModContainer, modBus: IEventBus) {
             )
         )
 
+        modBus.register(ModBusEvents)
+        ServerEvents.wire()
+        NeoForge.EVENT_BUS.register(ServerEvents)
         if (FMLEnvironment.dist.isClient) {
             NeoForge.EVENT_BUS.register(ClientEvents)
-            modBus.register(ModBusEvents)
         }
     }
 
     object ModBusEvents {
+        @SubscribeEvent
+        fun onRegisterPayloads(event: RegisterPayloadHandlersEvent) {
+            Payloads.register(event)
+        }
+
         @SubscribeEvent
         fun onClientSetup(@Suppress("UNUSED_PARAMETER") event: FMLClientSetupEvent) {
             gg.earu.chatsounds.ClientConfig.load()

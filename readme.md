@@ -16,7 +16,6 @@ Chat messages become sounds. A Kotlin Minecraft port of the Garry's Mod [neo-cha
 
 | Command | Effect |
 |---|---|
-| `/saysound <text>` (alias `/chatsounds say`) | broadcast a sound message: server-mod channel when present, otherwise sent as a normal chat message |
 | `/chatsounds sh` | stop all sounds |
 | `/chatsounds toggle` · `volume <0-4>` · `hidetext` · `shmode <0-2>` | client settings |
 | `/chatsounds block/unblock sound <index> <key>` (or `realm <name>`, `repository <name>`) | blacklist |

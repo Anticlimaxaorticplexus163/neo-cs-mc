@@ -21,12 +21,31 @@ object CompletionOverlay {
 
     fun render(graphics: GuiGraphics, screenHeight: Int) {
         if (!ClientConfig.data.enabled) return
-        val font = Minecraft.getInstance().font
+        val mc = Minecraft.getInstance()
+        val font = mc.font
         val baseY = screenHeight - 30 // just above the chat input box
         val lineHeight = font.lineHeight + 1
 
+        // Anchor to the right of the chat history panel so suggestions never overlap it.
+        val baseX = mc.gui.chat.width + 14
+        val backdrop = 0x90000000.toInt()
+
+        fun drawRow(prefix: String?, text: String, extra: String?, y: Int, textColor: Int) {
+            var width = font.width(text) + 2
+            if (prefix != null) width += 30
+            extra?.let { width += 12 + font.width(it) }
+            graphics.fill(baseX - 2, y - 1, baseX + width, y + font.lineHeight, backdrop)
+            var x = baseX
+            if (prefix != null) {
+                graphics.drawString(font, prefix, x, y, 0xC8C8FF)
+                x += 30
+            }
+            graphics.drawString(font, text, x, y, textColor)
+            extra?.let { graphics.drawString(font, it, x + font.width(text) + 12, y, 0xFFC850) }
+        }
+
         DataLoader.loading?.let { loading ->
-            graphics.drawString(font, "Loading chatsounds... ${loading.percent}%", 4, baseY - lineHeight, 0xFFFFFF)
+            drawRow(null, "Loading chatsounds... ${loading.percent}%", null, baseY, 0xFFFFFF)
             return
         }
 
@@ -41,11 +60,7 @@ object CompletionOverlay {
             if (row >= maxRows) return
             val suggestion = suggestions[indexInList]
             val y = baseY - row * lineHeight
-            graphics.drawString(font, "%03d.".format(indexInList + 1), 4, y, 0xC8C8FF)
-            graphics.drawString(font, suggestion.text, 34, y, if (isSelected) 0xFF4040 else 0xFFFFFF)
-            suggestion.extra?.let {
-                graphics.drawString(font, it, 34 + font.width(suggestion.text) + 12, y, 0xFFC850)
-            }
+            drawRow("%03d.".format(indexInList + 1), suggestion.text, suggestion.extra, y, if (isSelected) 0xFF4040 else 0xFFFFFF)
             row++
         }
 
@@ -53,7 +68,7 @@ object CompletionOverlay {
         for (i in start until suggestions.size) draw(i, i == selected)
         if (start > 0) {
             if (row < maxRows) {
-                graphics.drawString(font, "==================", 4, baseY - row * lineHeight, 0xB4B4FF)
+                drawRow(null, "==================", null, baseY - row * lineHeight, 0xB4B4FF)
                 row++
             }
             for (i in 0 until start) draw(i, false)

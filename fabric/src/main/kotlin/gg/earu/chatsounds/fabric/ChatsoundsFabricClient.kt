@@ -20,6 +20,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
@@ -30,6 +31,11 @@ import net.minecraft.network.chat.Component
 import org.lwjgl.glfw.GLFW
 
 class ChatsoundsFabricClient : ClientModInitializer {
+    private companion object {
+        const val VANILLA_CHAT_LIMIT = 256
+        const val LONG_MESSAGE_LIMIT = 60_000
+    }
+
     override fun onInitializeClient() {
         ClientConfig.load()
         Blacklist.load()
@@ -63,6 +69,21 @@ class ChatsoundsFabricClient : ClientModInitializer {
     }
 
     private fun registerChatEvents() {
+        // Vanilla chat caps at 256 chars; some sound keys are far longer. Route long
+        // messages through the mod channel when the server has it (GMod saysound path),
+        // otherwise fall back to the vanilla cap.
+        ClientSendMessageEvents.ALLOW_CHAT.register { message ->
+            if (message.length > VANILLA_CHAT_LIMIT && ClientPlayNetworking.canSend(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
+                ClientPlayNetworking.send(ChatsoundsPayloads.SaySoundPayload(message))
+                false
+            } else {
+                true
+            }
+        }
+        ClientSendMessageEvents.MODIFY_CHAT.register { message ->
+            if (message.length > VANILLA_CHAT_LIMIT) message.take(VANILLA_CHAT_LIMIT) else message
+        }
+
         ClientReceiveMessageEvents.ALLOW_CHAT.register { message, signedMessage, sender, _, _ ->
             val text = signedMessage?.signedContent() ?: message.string
             val senderId = sender?.id
@@ -87,6 +108,9 @@ class ChatsoundsFabricClient : ClientModInitializer {
     private fun registerScreenEvents() {
         ScreenEvents.AFTER_INIT.register { _, screen, _, _ ->
             if (screen !is ChatScreen) return@register
+
+            // Let long sound keys be typed/completed; the send path handles transport.
+            (screen as ChatScreenAccessor).`chatsounds$getInput`().setMaxLength(LONG_MESSAGE_LIMIT)
 
             ScreenEvents.afterRender(screen).register { s, graphics, _, _, _ ->
                 val chat = s as ChatScreen

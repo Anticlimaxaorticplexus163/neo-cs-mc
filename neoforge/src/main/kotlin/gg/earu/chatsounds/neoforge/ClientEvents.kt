@@ -96,7 +96,7 @@ object ClientEvents {
         if (event.keyCode != GLFW.GLFW_KEY_TAB) return
 
         val input = (screen as ChatScreenAccessor).`chatsounds$getInput`()
-        val window = Minecraft.getInstance().window.window
+        val window = Minecraft.getInstance().window.handle()
         val reverse = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS ||
             GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS ||
             GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS

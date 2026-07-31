@@ -77,12 +77,15 @@ object ChatsoundsServer {
             return
         }
 
-        val exempt = config.exemptOps && player.hasPermissions(2)
+        // GAMEMASTERS = the old permission level 2 (op).
+        val exempt = config.exemptOps && player.permissions().hasPermission(
+            net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS)
+        )
         if (spam.isSpam(player.uuid, text, System.nanoTime() / 1e9, exempt)) return
 
         val payload = ChatsoundsPayloads.RelayPayload(player.uuid, text)
         val radiusSq = config.radiusBlocks * config.radiusBlocks
-        for (listener in player.server.playerList.players) {
+        for (listener in player.level().server.playerList.players) {
             if (listener.level().dimension() != player.level().dimension()) continue
             if (listener.distanceToSqr(player) > radiusSq) continue
             if (!canSendTo(listener, ChatsoundsPayloads.RelayPayload.TYPE)) continue

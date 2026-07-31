@@ -22,14 +22,9 @@ dependencies {
     modImplementation(libs.fabric.api)
     modImplementation(libs.flk)
 
-    // Dev-only: Dynamic Surroundings (+ its Architectury/cloth-config dependencies) in
-    // runClient to exercise the reverb bridge.
-    modLocalRuntime("maven.modrinth:dynamicsurroundingsfabric:0.4.2")
-    modLocalRuntime("maven.modrinth:architectury-api:13.0.11+fabric")
-    modLocalRuntime("maven.modrinth:cloth-config:15.0.140+fabric")
-    // DS jar-in-jars nashorn, but Loom drops nested jars from remapped deps in dev;
-    // without a JS engine DS's DI chain crashes at the title screen.
-    runtimeOnly("org.openjdk.nashorn:nashorn-core:15.4")
+    // Dynamic Surroundings has no 1.21.11 build yet; re-add the dev-runtime deps here
+    // (dynamicsurroundingsfabric + architectury-api + cloth-config + nashorn-core) to
+    // exercise the reverb bridge once it ships.
 }
 
 loom {

@@ -6,7 +6,7 @@ import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.resources.Identifier
 import net.minecraft.sounds.SoundSource
 
 /**
@@ -16,7 +16,7 @@ import net.minecraft.sounds.SoundSource
  * inside DS and every environment calculation silently clears to dry).
  */
 class VoiceSoundInstance(private val params: VoiceParams) : SoundInstance {
-    private val location = ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "voice")
+    private val location = Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "voice")
     private val sound = Sound(
         location,
         net.minecraft.util.valueproviders.ConstantFloat.of(1f),
@@ -28,7 +28,7 @@ class VoiceSoundInstance(private val params: VoiceParams) : SoundInstance {
         params.maxDistance.toInt(),
     )
 
-    override fun getLocation(): ResourceLocation = location
+    override fun getIdentifier(): Identifier = location
     override fun resolve(manager: SoundManager): WeighedSoundEvents? = null
     override fun getSound(): Sound = sound
     override fun getSource(): SoundSource = SoundSource.PLAYERS

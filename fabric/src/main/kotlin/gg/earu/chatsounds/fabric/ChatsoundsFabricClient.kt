@@ -118,9 +118,10 @@ class ChatsoundsFabricClient : ClientModInitializer {
                 CompletionOverlay.render(graphics, chat.height)
             }
 
-            ScreenKeyboardEvents.allowKeyPress(screen).register { s, key, _, modifiers ->
-                if (key != GLFW.GLFW_KEY_TAB) return@register true
+            ScreenKeyboardEvents.allowKeyPress(screen).register { s, keyEvent ->
+                if (keyEvent.key() != GLFW.GLFW_KEY_TAB) return@register true
                 val input = (s as ChatScreenAccessor).`chatsounds$getInput`()
+                val modifiers = keyEvent.modifiers()
                 val reverse = (modifiers and GLFW.GLFW_MOD_SHIFT) != 0 || (modifiers and GLFW.GLFW_MOD_CONTROL) != 0
                 val replacement = CompletionOverlay.onTab(input.value, reverse)
                 if (replacement != null) {

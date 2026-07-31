@@ -6,7 +6,7 @@ import net.minecraft.core.UUIDUtil
 import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.resources.Identifier
 import java.util.UUID
 
 /**
@@ -17,7 +17,7 @@ object ChatsoundsPayloads {
     /** S->C: the server's repo_config.json — the client rebuilds its lists from it. */
     class RepoConfigPayload(val json: String) : CustomPacketPayload {
         companion object {
-            val TYPE = CustomPacketPayload.Type<RepoConfigPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "repo_config"))
+            val TYPE = CustomPacketPayload.Type<RepoConfigPayload>(Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "repo_config"))
             val CODEC: StreamCodec<ByteBuf, RepoConfigPayload> =
                 ByteBufCodecs.STRING_UTF8.map(::RepoConfigPayload) { it.json }
         }
@@ -28,7 +28,7 @@ object ChatsoundsPayloads {
     /** S->C: a chat message to sound out, positioned at the sender. */
     class RelayPayload(val sender: UUID, val text: String) : CustomPacketPayload {
         companion object {
-            val TYPE = CustomPacketPayload.Type<RelayPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "relay"))
+            val TYPE = CustomPacketPayload.Type<RelayPayload>(Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "relay"))
             val CODEC: StreamCodec<ByteBuf, RelayPayload> = StreamCodec.composite(
                 UUIDUtil.STREAM_CODEC, RelayPayload::sender,
                 ByteBufCodecs.STRING_UTF8, RelayPayload::text,
@@ -42,7 +42,7 @@ object ChatsoundsPayloads {
     /** C->S: the saysound/broadcast command path. */
     class SaySoundPayload(val text: String) : CustomPacketPayload {
         companion object {
-            val TYPE = CustomPacketPayload.Type<SaySoundPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "saysound"))
+            val TYPE = CustomPacketPayload.Type<SaySoundPayload>(Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "saysound"))
             val CODEC: StreamCodec<ByteBuf, SaySoundPayload> =
                 ByteBufCodecs.STRING_UTF8.map(::SaySoundPayload) { it.text }
         }

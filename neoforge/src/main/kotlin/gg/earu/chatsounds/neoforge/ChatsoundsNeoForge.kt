@@ -18,7 +18,7 @@ class ChatsoundsNeoForge(container: ModContainer, modBus: IEventBus) {
         Chatsounds.init(
             NeoForgePlatform(
                 configDir = FMLPaths.CONFIGDIR.get().resolve("chatsounds"),
-                isClient = FMLEnvironment.dist.isClient,
+                isClient = FMLEnvironment.getDist().isClient,
                 modVersion = container.modInfo.version.toString(),
             )
         )
@@ -26,7 +26,7 @@ class ChatsoundsNeoForge(container: ModContainer, modBus: IEventBus) {
         modBus.register(ModBusEvents)
         ServerEvents.wire()
         NeoForge.EVENT_BUS.register(ServerEvents)
-        if (FMLEnvironment.dist.isClient) {
+        if (FMLEnvironment.getDist().isClient) {
             NeoForge.EVENT_BUS.register(ClientEvents)
         }
     }

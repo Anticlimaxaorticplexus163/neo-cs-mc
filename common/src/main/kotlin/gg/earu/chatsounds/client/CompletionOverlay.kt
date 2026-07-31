@@ -27,7 +27,7 @@ object CompletionOverlay {
         val lineHeight = font.lineHeight + 1
 
         // Anchor to the right of the chat history panel so suggestions never overlap it.
-        val baseX = mc.gui.chat.width + 14
+        val baseX = net.minecraft.client.gui.components.ChatComponent.getWidth(mc.options.chatWidth().get()) + 14
         val backdrop = 0x90000000.toInt()
 
         fun drawRow(prefix: String?, text: String, extra: String?, y: Int, textColor: Int) {
@@ -37,15 +37,15 @@ object CompletionOverlay {
             graphics.fill(baseX - 2, y - 1, baseX + width, y + font.lineHeight, backdrop)
             var x = baseX
             if (prefix != null) {
-                graphics.drawString(font, prefix, x, y, 0xC8C8FF)
+                graphics.drawString(font, prefix, x, y, 0xFFC8C8FF.toInt())
                 x += 30
             }
             graphics.drawString(font, text, x, y, textColor)
-            extra?.let { graphics.drawString(font, it, x + font.width(text) + 12, y, 0xFFC850) }
+            extra?.let { graphics.drawString(font, it, x + font.width(text) + 12, y, 0xFFFFC850.toInt()) }
         }
 
         DataLoader.loading?.let { loading ->
-            drawRow(null, "Loading chatsounds... ${loading.percent}%", null, baseY, 0xFFFFFF)
+            drawRow(null, "Loading chatsounds... ${loading.percent}%", null, baseY, 0xFFFFFFFF.toInt())
             return
         }
 
@@ -60,7 +60,7 @@ object CompletionOverlay {
             if (row >= maxRows) return
             val suggestion = suggestions[indexInList]
             val y = baseY - row * lineHeight
-            drawRow("%03d.".format(indexInList + 1), suggestion.text, suggestion.extra, y, if (isSelected) 0xFF4040 else 0xFFFFFF)
+            drawRow("%03d.".format(indexInList + 1), suggestion.text, suggestion.extra, y, if (isSelected) 0xFFFF4040.toInt() else 0xFFFFFFFF.toInt())
             row++
         }
 
@@ -68,7 +68,7 @@ object CompletionOverlay {
         for (i in start until suggestions.size) draw(i, i == selected)
         if (start > 0) {
             if (row < maxRows) {
-                drawRow(null, "==================", null, baseY - row * lineHeight, 0xB4B4FF)
+                drawRow(null, "==================", null, baseY - row * lineHeight, 0xFFB4B4FF.toInt())
                 row++
             }
             for (i in 0 until start) draw(i, false)

@@ -185,7 +185,10 @@ object AudioEngine {
         AL10.alGenBuffers(voice.freeBuffers)
         voice.freeCount = QUEUE_DEPTH
 
-        // Vanilla's global model is AL_LINEAR_DISTANCE_CLAMPED; mirror its per-source setup.
+        // Minecraft enables AL_EXT_source_distance_model, so the distance model is PER
+        // SOURCE — without setting it here a source gets no attenuation at all. Mirror
+        // vanilla Channel.linearAttenuation: linear falloff to zero at maxDistance.
+        AL10.alSourcei(voice.source, org.lwjgl.openal.EXTSourceDistanceModel.AL_DISTANCE_MODEL, org.lwjgl.openal.AL11.AL_LINEAR_DISTANCE_CLAMPED)
         AL10.alSourcef(voice.source, AL10.AL_ROLLOFF_FACTOR, 1f)
         AL10.alSourcef(voice.source, AL10.AL_REFERENCE_DISTANCE, 0f)
         AL10.alSourcef(voice.source, AL10.AL_MAX_DISTANCE, voice.params.maxDistance)

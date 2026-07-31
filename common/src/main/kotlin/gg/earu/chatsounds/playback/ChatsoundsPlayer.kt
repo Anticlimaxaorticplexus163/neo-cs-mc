@@ -266,6 +266,7 @@ object ChatsoundsPlayer {
         val categoryVolume = mc.options.getSoundSourceVolume(SoundSource.PLAYERS) *
             ClientConfig.data.volume.toFloat()
 
+        val maxDistance = ClientConfig.data.maxDistance.toFloat()
         for (active in activeSounds) {
             if (active.voice.finished) {
                 activeSounds.remove(active)
@@ -277,6 +278,7 @@ object ChatsoundsPlayer {
             }
 
             val params = active.params
+            params.maxDistance = maxDistance
             val speaker = active.speakerId?.let { level?.getPlayerByUUID(it) }
             when {
                 active.speakerId == null -> {

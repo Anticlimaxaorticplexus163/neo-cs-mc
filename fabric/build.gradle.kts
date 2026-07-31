@@ -27,6 +27,9 @@ dependencies {
     modLocalRuntime("maven.modrinth:dynamicsurroundingsfabric:0.4.2")
     modLocalRuntime("maven.modrinth:architectury-api:13.0.11+fabric")
     modLocalRuntime("maven.modrinth:cloth-config:15.0.140+fabric")
+    // DS jar-in-jars nashorn, but Loom drops nested jars from remapped deps in dev;
+    // without a JS engine DS's DI chain crashes at the title screen.
+    runtimeOnly("org.openjdk.nashorn:nashorn-core:15.4")
 }
 
 loom {

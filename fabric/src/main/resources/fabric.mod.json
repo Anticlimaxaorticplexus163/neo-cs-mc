@@ -10,6 +10,7 @@
     "sources": "https://github.com/Earu/neo-cs-mc"
   },
   "license": "AGPL-3.0",
+  "icon": "assets/chatsounds/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [

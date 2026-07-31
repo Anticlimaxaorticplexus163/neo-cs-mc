@@ -7,6 +7,7 @@ issueTrackerURL = "https://github.com/Earu/neo-cs-mc/issues"
 modId = "chatsounds"
 version = "${version}"
 displayName = "Chatsounds"
+logoFile = "assets/chatsounds/icon.png"
 description = '''Memes ported into your own Minecraft, free of charge.'''
 authors = "Earu"
 

